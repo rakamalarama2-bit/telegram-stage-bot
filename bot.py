@@ -8,11 +8,11 @@ from telegram.error import BadRequest
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 STAGE_TOPIC_ID = 4
 
-# Track violations
+# Track user violations
 violations = {}
 
 
-async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def process_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = update.message
 
@@ -31,18 +31,15 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print("Media detected:", message_id)
 
-    # ---------------------------
-    # CHECK EARLY DELETE (20 sec)
-    # ---------------------------
+    # -------------------------
+    # 1️⃣ Check early deletion
+    # -------------------------
 
     await asyncio.sleep(20)
 
     try:
-        await context.bot.forward_message(
-            chat_id,
-            chat_id,
-            message_id
-        )
+        await context.bot.forward_message(chat_id, chat_id, message_id)
+
     except BadRequest:
 
         violations[user_id] = violations.get(user_id, 0) + 1
@@ -53,8 +50,6 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_thread_id=STAGE_TOPIC_ID,
             text=f"⚠️ {username} violation point {strike}/3: Media removed under 20 seconds."
         )
-
-        print("Early deletion violation.")
 
         if strike >= 3:
 
@@ -74,11 +69,11 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         return
 
-    # ---------------------------
-    # NORMAL FLOW
-    # ---------------------------
+    # -------------------------
+    # 2️⃣ Reminder at 2 minutes
+    # -------------------------
 
-    await asyncio.sleep(100)  # remaining time to reach 2 minutes
+    await asyncio.sleep(100)
 
     try:
         await context.bot.send_message(
@@ -88,13 +83,13 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="⏰ Please delete your image/video now."
         )
 
-        print("Reminder sent.")
-
     except BadRequest:
-        print("Media already deleted before reminder.")
         return
 
-    # Wait 1 more minute
+    # -------------------------
+    # 3️⃣ Auto delete at 3 mins
+    # -------------------------
+
     await asyncio.sleep(60)
 
     try:
@@ -103,6 +98,11 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except BadRequest:
         print("User deleted before auto-delete.")
+
+
+async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # run each message in its own task (supports multiple users)
+    asyncio.create_task(process_media(update, context))
 
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
