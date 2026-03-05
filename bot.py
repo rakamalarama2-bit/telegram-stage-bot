@@ -39,12 +39,16 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # CHECK IF MESSAGE STILL EXISTS
     # ---------------------------------
     try:
-        await context.bot.copy_message(
+        # forward silently to check existence
+        test = await context.bot.forward_message(
             chat_id=chat_id,
             from_chat_id=chat_id,
             message_id=message_id,
             disable_notification=True
         )
+
+        # immediately delete the forwarded test message
+        await context.bot.delete_message(chat_id, test.message_id)
 
     except BadRequest:
         print("Media already deleted before reminder.")
