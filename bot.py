@@ -8,19 +8,13 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 STAGE_TOPIC_ID = 4
 
 
-async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def process_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     message = update.message
 
-    # Must be in a topic
-    if message.message_thread_id is None:
-        return
-
-    # Only run in STAGE topic
     if message.message_thread_id != STAGE_TOPIC_ID:
         return
 
-    # Only detect photos or videos
     if not (message.photo or message.video):
         return
 
@@ -35,28 +29,9 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # WAIT 2 MINUTES
     await asyncio.sleep(120)
 
-    # ---------------------------------
-    # CHECK IF MESSAGE STILL EXISTS
-    # ---------------------------------
-    try:
-        # forward silently to check existence
-        test = await context.bot.forward_message(
-            chat_id=chat_id,
-            from_chat_id=chat_id,
-            message_id=message_id,
-            disable_notification=True
-        )
-
-        # immediately delete the forwarded test message
-        await context.bot.delete_message(chat_id, test.message_id)
-
-    except BadRequest:
-        print("Media already deleted before reminder.")
-        return
-
-    # ---------------------------------
-    # SEND WARNING
-    # ---------------------------------
+    # -------------------------
+    # REMINDER
+    # -------------------------
     try:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -68,15 +43,15 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("Reminder sent.")
 
     except BadRequest:
-        print("Message disappeared before warning.")
+        print("Media already deleted before reminder.")
         return
 
     # WAIT 2 MORE MINUTES
     await asyncio.sleep(120)
 
-    # ---------------------------------
+    # -------------------------
     # AUTO DELETE
-    # ---------------------------------
+    # -------------------------
     try:
         await context.bot.delete_message(chat_id, message_id)
 
@@ -91,6 +66,10 @@ async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest:
         print("User deleted media before auto-delete.")
         pass
+
+
+async def media_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    asyncio.create_task(process_media(update, context))
 
 
 app = ApplicationBuilder().token(BOT_TOKEN).build()
